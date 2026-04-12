@@ -291,13 +291,14 @@ function onErr(e,s) { if(s)return; state.loading=false; showToast('Failed to loa
 function renderAll() { renderMonthLabel(); renderSummary(); renderList(); }
 function renderMonthLabel() { document.getElementById('monthLabel').textContent=formatMonth(state.currentMonth); }
 function renderSummary() { var exp=0,inc=0; filterTxns().forEach(function(x){ if(x.amount<0) exp+=x.amount; else inc+=x.amount; }); document.getElementById('totalExpense').textContent=formatNumber(exp); document.getElementById('totalIncome').textContent='+'+formatNumber(inc); }
-var TRANSFER_ACCT = '1392111696';
+function isInternalTransfer(t) {
+  var s = (t.to || '') + '|' + (t.dup || '');
+  return s.indexOf('1392111686') >= 0 || s.indexOf('x1686') >= 0;
+}
 function filterTxns() {
   var hide = document.getElementById('hideTransfers').checked;
   if (!hide) return state.transactions;
-  return state.transactions.filter(function(t) {
-    return !(t.amount >= 0 && t.to && t.to.indexOf(TRANSFER_ACCT) >= 0);
-  });
+  return state.transactions.filter(function(t) { return !isInternalTransfer(t); });
 }
 
 function renderList() {
