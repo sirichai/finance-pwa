@@ -121,10 +121,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   <div class="summary">
-    <div class="summary-label">Expenses</div>
-    <div class="summary-amount">
-      <span id="totalAmount">0</span>
-      <span class="currency">THB</span>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+      <div>
+        <div class="summary-label">Expense</div>
+        <div class="summary-amount" style="color:#1a1a1a;"><span id="totalExpense">0</span><span class="currency">THB</span></div>
+      </div>
+      <div style="text-align:right;">
+        <div class="summary-label">Income</div>
+        <div class="summary-amount" style="font-size:22px;color:#1a5c1a;"><span id="totalIncome">0</span><span class="currency">THB</span></div>
+      </div>
     </div>
   </div>
   <div id="txnList"></div>
@@ -235,9 +240,9 @@ function onFetchError(err,silent) { if(silent)return; state.loading=false; showT
 // ── Rendering ──
 function renderAll() { renderMonthLabel(); renderSummary(); renderList(); }
 function renderMonthLabel() { document.getElementById('monthLabel').textContent = formatMonth(state.currentMonth); }
-function renderSummary() { var t=0; filterTransactions().forEach(function(x){t+=x.amount;}); document.getElementById('totalAmount').textContent=formatNumber(t); }
+function renderSummary() { var exp=0,inc=0; filterTransactions().forEach(function(x){ if(x.amount<0) exp+=x.amount; else inc+=x.amount; }); document.getElementById('totalExpense').textContent=formatNumber(exp); document.getElementById('totalIncome').textContent='+'+formatNumber(inc); }
 
-function filterTransactions() { return state.transactions.filter(function(t){ return t.dup!=='Y'; }); }
+function filterTransactions() { return state.transactions; }
 
 function renderList() {
   var c = document.getElementById('txnList');
@@ -251,14 +256,21 @@ function renderList() {
     var txns=groups[date], total=0; txns.forEach(function(t){total+=t.amount;});
     var d=formatDay(date);
     html+='<div class="day-group"><div class="day-header"><div><div class="day-date-badge"><span class="day-name">'+d.dayName+'</span><span class="day-num">'+d.dayNum+'</span></div></div>';
-    html+='<div class="day-total"><div class="day-total-label"><span class="arrow">↑</span> Spent</div><div class="day-total-amount">'+formatNumber(total)+'</div></div></div>';
+    var dtExp=0,dtInc=0; txns.forEach(function(t){if(t.amount<0)dtExp+=t.amount;else dtInc+=t.amount;});
+    var dayHtml='<div class="day-total">';
+    dayHtml+='<div style="color:var(--expense);font-size:14px;font-weight:600;">'+formatNumber(dtExp)+'</div>';
+    if(dtInc>0) dayHtml+='<div style="color:var(--income);font-size:12px;">+'+formatNumber(dtInc)+'</div>';
+    dayHtml+='</div>';
+    html+=dayHtml+'</div>';
     txns.forEach(function(txn,idx) {
       var catId=txn.category||suggestCategory(txn), cat=CAT_MAP[catId]||{emoji:'📌',label:'Other'};
       var payee=txn.to||txn.type||'-', desc=txn.note||txn.type||'';
       if(txn.tag) desc=txn.tag+(desc?' · '+desc:'');
       html+='<div class="txn-card" onclick="openEdit(\''+date+'\','+idx+')">';
       html+='<div class="txn-icon">'+cat.emoji+'</div><div class="txn-info"><div class="txn-payee">'+escHtml(payee)+'</div><div class="txn-desc">'+escHtml(desc)+'</div></div>';
-      html+='<div><div class="txn-amount">'+formatNumber(txn.amount)+'</div><div class="txn-time">'+(txn.time||'')+'</div></div></div>';
+      var amtColor=txn.amount>=0?'var(--income)':'var(--expense)';
+      var amtText=txn.amount>=0?'+'+formatNumber(txn.amount):formatNumber(txn.amount);
+      html+='<div><div class="txn-amount" style="color:'+amtColor+'">'+amtText+'</div><div class="txn-time">'+(txn.time||'')+'</div></div></div>';
     });
     html+='</div>';
   });
@@ -272,7 +284,9 @@ function openEdit(date,idx) {
   var groups={}; filterTransactions().forEach(function(t){ if(!groups[t.date])groups[t.date]=[]; groups[t.date].push(t); });
   var txn=groups[date][idx]; if(!txn)return;
   state.editingTxn=txn; state.selectedCat=txn.category||suggestCategory(txn);
-  document.getElementById('modalSummary').innerHTML='<div><div class="payee">'+escHtml(txn.to||txn.type)+'</div><div class="meta">'+txn.date+' '+txn.time+'</div></div><div class="txn-amount">'+formatNumber(txn.amount)+' THB</div>';
+  var mColor=txn.amount>=0?'var(--income)':'var(--expense)';
+  var mText=txn.amount>=0?'+'+formatNumber(txn.amount):formatNumber(txn.amount);
+  document.getElementById('modalSummary').innerHTML='<div><div class="payee">'+escHtml(txn.to||txn.type)+'</div><div class="meta">'+txn.date+' '+txn.time+'</div></div><div class="txn-amount" style="color:'+mColor+'">'+mText+' THB</div>';
   renderCatGrid();
   document.getElementById('tagInput').value=txn.tag||'';
   document.getElementById('noteInput').value=txn.note||'';
