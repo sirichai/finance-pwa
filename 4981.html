@@ -463,11 +463,38 @@ body {
 .toast.error { border: 1px solid var(--expense); }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+
+/* ── PIN screen ─────────────────────────────────────── */
+.pin-screen {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px;
+}
+.pin-screen.hidden { display: none; }
+.pin-title { font-size: 20px; font-weight: 600; }
+.pin-input {
+  width: 160px; padding: 12px; text-align: center;
+  font-size: 28px; letter-spacing: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  outline: none; -webkit-text-security: disc;
+}
+.pin-input:focus { border-color: var(--accent); }
+.pin-error { color: var(--expense); font-size: 14px; min-height: 20px; }
 </style>
 </head>
 <body>
 
-<div class="app" id="app">
+<!-- PIN Gate -->
+<div class="pin-screen" id="pinScreen">
+  <div class="pin-title">🔒 ใส่ PIN</div>
+  <input type="tel" class="pin-input" id="pinInput" maxlength="4" autofocus inputmode="numeric">
+  <div class="pin-error" id="pinError"></div>
+</div>
+
+<div class="app" id="app" style="display:none">
   <!-- Header -->
   <div class="header">
     <div class="header-top">
@@ -948,10 +975,47 @@ document.getElementById('editModal').addEventListener('click', function(e) {
 document.getElementById('btnSave').addEventListener('click', saveEdit);
 
 // ═══════════════════════════════════════════════════════════════════
+// PIN Gate
+// ═══════════════════════════════════════════════════════════════════
+
+var PIN_HASH = '1aa377'; // hash of PIN 9011
+function hashPin(p) {
+  var h = 0;
+  for (var i = 0; i < p.length; i++) { h = ((h << 5) - h + p.charCodeAt(i)) | 0; }
+  return (h >>> 0).toString(16);
+}
+
+function checkAuth() {
+  if (sessionStorage.getItem('fin_auth') === '1') {
+    unlock();
+    return;
+  }
+  document.getElementById('pinScreen').classList.remove('hidden');
+}
+
+function unlock() {
+  document.getElementById('pinScreen').classList.add('hidden');
+  document.getElementById('app').style.display = '';
+  sessionStorage.setItem('fin_auth', '1');
+  fetchData();
+}
+
+document.getElementById('pinInput').addEventListener('input', function() {
+  if (this.value.length === 4) {
+    if (hashPin(this.value) === PIN_HASH) {
+      unlock();
+    } else {
+      document.getElementById('pinError').textContent = 'PIN ไม่ถูกต้อง';
+      this.value = '';
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // Init
 // ═══════════════════════════════════════════════════════════════════
 
-fetchData();
+checkAuth();
 </script>
 
 </body>
