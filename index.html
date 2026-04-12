@@ -54,7 +54,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .txn-info { flex: 1; min-width: 0; }
 .txn-payee { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .txn-desc { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-.txn-amount { font-size: 16px; font-weight: 600; flex-shrink: 0; text-align: right; }
+.txn-amount { font-size: 18px; font-weight: 700; flex-shrink: 0; text-align: right; letter-spacing: -0.5px; }
 .txn-time { font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 2px; }
 
 /* ── Bottom nav ── */
@@ -154,8 +154,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
     </div>
   </div>
-  <div style="padding:6px 16px;background:var(--bg-card);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="hideTransfers" style="accent-color:var(--accent);"> Hide transfers</label>
+  <div style="padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-secondary);user-select:none;"><input type="checkbox" id="hideTransfers" style="accent-color:var(--accent);width:16px;height:16px;"> Hide transfers</label>
   </div>
   <div id="txnList"></div>
 </div>
@@ -320,25 +320,32 @@ function renderList() {
     var d=formatDay(date);
     html+='<div class="day-group"><div class="day-header"><div><div class="day-date-badge"><span class="day-name">'+d.dayName+'</span><span class="day-num">'+d.dayNum+'</span></div></div>';
     var dtExp=0,dtInc=0; txns.forEach(function(t){if(t.amount<0)dtExp+=t.amount;else dtInc+=t.amount;});
-    var dayHtml='<div class="day-total">';
-    dayHtml+='<div style="color:var(--expense);font-size:14px;font-weight:600;">'+formatNumber(dtExp)+'</div>';
-    if(dtInc>0) dayHtml+='<div style="color:var(--income);font-size:12px;">+'+formatNumber(dtInc)+'</div>';
+    var dayHtml='<div class="day-total" style="line-height:1.4;">';
+    dayHtml+='<div style="color:var(--expense);font-size:15px;font-weight:600;">'+formatNumber(Math.abs(dtExp))+'</div>';
+    if(dtInc>0) dayHtml+='<div style="color:var(--income);font-size:13px;opacity:0.8;">+'+formatNumber(dtInc)+'</div>';
     dayHtml+='</div>';
     html+=dayHtml+'</div>';
 
     txns.forEach(function(txn,idx) {
       var catId=txn.category||suggestCategory(txn), cat=CAT_MAP[catId]||{emoji:'📌',label:'Other'};
       var payee=txn.to||txn.type||'-';
-      var desc=txn.note||(isCardX?txn.cardNote:'')||(isShopee?txn.detail:'')||txn.type||'';
+      var desc='';
+      if (txn.tag) desc=txn.tag;
+      if (txn.note && txn.note!==desc) desc=desc?(desc+' · '+txn.note):txn.note;
+      if (isCardX && txn.cardNote) desc=desc?(desc+' · '+txn.cardNote):txn.cardNote;
+      if (isShopee && txn.detail) desc=desc?(desc+' · '+txn.detail):txn.detail;
+      if (isShopee && txn.items) desc=desc?(txn.items+' items · '+desc):(txn.items+' items');
       if (isCardX && txn.famount && txn.currency && txn.currency!=='THB') desc=(txn.famount+' '+txn.currency)+(desc?' · '+desc:'');
-      if (isShopee && txn.items) desc=txn.items+' items'+(desc?' · '+desc:'');
-      if (txn.tag) desc=txn.tag+(desc?' · '+desc:'');
+      // Fallback: show type only if different from payee and desc is empty
+      if (!desc && txn.type && txn.type!==payee) desc=txn.type;
+      // Don't show generic Debit/Credit as desc
+      if (desc==='Debit'||desc==='Credit') desc='';
 
       html+='<div class="txn-card" onclick="openEdit(\''+date+'\','+idx+')">';
       html+='<div class="txn-icon">'+cat.emoji+'</div><div class="txn-info"><div class="txn-payee">'+escHtml(payee)+'</div><div class="txn-desc">'+escHtml(desc)+'</div></div>';
       var amtColor=txn.amount>=0?'var(--income)':'var(--expense)';
-      var amtText=txn.amount>=0?'+'+formatNumber(txn.amount):formatNumber(txn.amount);
-      html+='<div><div class="txn-amount" style="color:'+amtColor+'">'+amtText+'</div><div class="txn-time">'+(txn.time||'')+'</div></div></div>';
+      var amtAbs=formatNumber(Math.abs(txn.amount));
+      html+='<div><div class="txn-amount" style="color:'+amtColor+'">'+amtAbs+'</div><div class="txn-time">'+(txn.time||'')+'</div></div></div>';
     });
     html+='</div>';
   });
