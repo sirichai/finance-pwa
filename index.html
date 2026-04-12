@@ -293,7 +293,10 @@ function renderMonthLabel() { document.getElementById('monthLabel').textContent=
 function renderSummary() { var exp=0,inc=0; filterTxns().forEach(function(x){ if(x.amount<0) exp+=x.amount; else inc+=x.amount; }); document.getElementById('totalExpense').textContent=formatNumber(exp); document.getElementById('totalIncome').textContent='+'+formatNumber(inc); }
 function isInternalTransfer(t) {
   var s = (t.to || '') + '|' + (t.dup || '');
-  return s.indexOf('1392111686') >= 0 || s.indexOf('x1686') >= 0;
+  if (s.indexOf('1392111686') >= 0 || s.indexOf('x1686') >= 0) return true;
+  // LINE-only Credit with empty To → likely internal transfer (pending PDF sync)
+  if (t.amount > 0 && !t.to) return true;
+  return false;
 }
 function filterTxns() {
   var hide = document.getElementById('hideTransfers').checked;
