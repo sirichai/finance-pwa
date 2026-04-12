@@ -23,15 +23,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .app { margin: 0 auto; padding-bottom: 72px; }
 
 /* ── Header ── */
-.header { background: var(--accent); color: #1a1a1a; padding: 12px 16px; position: sticky; top: 0; z-index: 100; }
+.header { background: var(--tab-color, var(--accent)); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 100; }
+.summary { background: var(--tab-color, var(--accent)); color: #fff; padding: 0 16px 16px; }
 .header-top { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 18px; font-weight: 600; }
-.header-top button { background: none; border: none; font-size: 22px; cursor: pointer; color: #1a1a1a; padding: 4px 8px; border-radius: 6px; }
+.header-top button { background: none; border: none; font-size: 22px; cursor: pointer; color: #fff; padding: 4px 8px; border-radius: 6px; }
 .header-top button:active { opacity: 0.6; }
 #monthLabel { cursor: pointer; padding: 4px 12px; border-radius: 6px; }
 #monthLabel:active { background: rgba(0,0,0,0.1); }
 
 /* ── Summary ── */
-.summary { background: var(--accent); color: #1a1a1a; padding: 0 16px 16px; }
 .summary-label { font-size: 13px; opacity: 0.8; }
 .summary-amount { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
 .summary-amount .currency { font-size: 18px; font-weight: 400; margin-left: 4px; opacity: 0.7; }
@@ -60,9 +60,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 /* ── Bottom nav ── */
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; padding: 6px 0; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: 500; transition: color 0.15s; border: none; background: none; font-family: inherit; }
-.nav-item.active { color: var(--accent); }
 .nav-item .nav-icon { font-size: 22px; line-height: 1; }
 .nav-item:active { opacity: 0.7; }
+.nav-item[data-tab="4981"] .nav-dot { background: #4e2a84; }
+.nav-item[data-tab="1686"] .nav-dot { background: #7b4fbf; }
+.nav-item[data-tab="CardX"] .nav-dot { background: #a87dd8; }
+.nav-item[data-tab="Shopee"] .nav-dot { background: #ee4d2d; }
+.nav-item.active[data-tab="4981"] { color: #7b4fbf; }
+.nav-item.active[data-tab="1686"] { color: #a87dd8; }
+.nav-item.active[data-tab="CardX"] { color: #c9a6ec; }
+.nav-item.active[data-tab="Shopee"] { color: #ee4d2d; }
+.nav-dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 2px; }
+.nav-item:not(.active) .nav-dot { opacity: 0.4; }
 
 /* ── Edit modal ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
@@ -145,9 +154,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <!-- Bottom nav -->
 <nav class="bottom-nav" id="bottomNav" style="display:none">
-  <button class="nav-item active" data-tab="4981"><span class="nav-icon">🏦</span>4981</button>
-  <button class="nav-item" data-tab="1686"><span class="nav-icon">🏦</span>1686</button>
-  <button class="nav-item" data-tab="CardX"><span class="nav-icon">💳</span>CardX</button>
+  <button class="nav-item active" data-tab="4981"><span class="nav-dot"></span>4981</button>
+  <button class="nav-item" data-tab="1686"><span class="nav-dot"></span>1686</button>
+  <button class="nav-item" data-tab="CardX"><span class="nav-dot"></span>CardX</button>
+  <button class="nav-item" data-tab="Shopee"><span class="nav-dot"></span>Shopee</button>
 </nav>
 
 <!-- Edit Modal -->
@@ -192,10 +202,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <script>
 // ── Config ──
 var ACCOUNTS = [
-  { tab: '4981', icon: '🏦', label: '4981' },
-  { tab: '1686', icon: '🏦', label: '1686' },
-  { tab: 'CardX', icon: '💳', label: 'CardX' }
+  { tab: '4981', color: '#4e2a84' },
+  { tab: '1686', color: '#7b4fbf' },
+  { tab: 'CardX', color: '#a87dd8' },
+  { tab: 'Shopee', color: '#ee4d2d' }
 ];
+var TAB_COLORS = {};
+ACCOUNTS.forEach(function(a){ TAB_COLORS[a.tab] = a.color; });
 
 var CATEGORIES = [
   { id: 'food', emoji: '🍜', label: 'Food' },
@@ -236,6 +249,7 @@ function suggestCategory(txn) {
   if (txn.category) return txn.category;
   var t=(txn.type||'').toLowerCase(), to=(txn.to||'').toLowerCase();
   if (t.indexOf('cardless atm')>=0) return 'atm';
+  if (t==='shopee') return 'shopping';
   if (t.indexOf('card payment')>=0) return 'shopping';
   if (t.indexOf('transfer')>=0||t.indexOf('promptpay')>=0) return 'transfer';
   if (t.indexOf('bill payment')>=0) return 'bills';
@@ -280,7 +294,7 @@ function renderList() {
   var groups={}, order=[];
   filtered.forEach(function(t){ if(!groups[t.date]){groups[t.date]=[];order.push(t.date);} groups[t.date].push(t); });
 
-  var isCardX = (state.currentTab==='CardX');
+  var isCardX = (state.currentTab==='CardX'), isShopee = (state.currentTab==='Shopee');
   var html='';
   order.forEach(function(date) {
     var txns=groups[date], total=0; txns.forEach(function(t){total+=t.amount;});
@@ -291,8 +305,9 @@ function renderList() {
     txns.forEach(function(txn,idx) {
       var catId=txn.category||suggestCategory(txn), cat=CAT_MAP[catId]||{emoji:'📌',label:'Other'};
       var payee=txn.to||txn.type||'-';
-      var desc=txn.note||(isCardX?txn.cardNote:'')||txn.type||'';
+      var desc=txn.note||(isCardX?txn.cardNote:'')||(isShopee?txn.detail:'')||txn.type||'';
       if (isCardX && txn.famount && txn.currency && txn.currency!=='THB') desc=(txn.famount+' '+txn.currency)+(desc?' · '+desc:'');
+      if (isShopee && txn.items) desc=txn.items+' items'+(desc?' · '+desc:'');
       if (txn.tag) desc=txn.tag+(desc?' · '+desc:'');
 
       html+='<div class="txn-card" onclick="openEdit(\''+date+'\','+idx+')">';
@@ -350,6 +365,7 @@ function pickMonth(ym) { state.currentMonth=ym; closeMonthPicker(); fetchData();
 function switchTab(tab) {
   state.currentTab=tab;
   document.querySelectorAll('.nav-item').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
+  document.documentElement.style.setProperty('--tab-color', TAB_COLORS[tab]||'var(--accent)');
   fetchData();
 }
 
@@ -376,7 +392,7 @@ document.querySelectorAll('.nav-item').forEach(function(b){b.addEventListener('c
 var PIN_HASH='178884';
 function hashPin(p){var h=0;for(var i=0;i<p.length;i++){h=((h<<5)-h+p.charCodeAt(i))|0;}return(h>>>0).toString(16);}
 function checkAuth(){if(sessionStorage.getItem('fin_auth')==='1'){unlock();return;}}
-function unlock(){document.getElementById('pinScreen').classList.add('hidden');document.getElementById('app').style.display='';document.getElementById('bottomNav').style.display='';sessionStorage.setItem('fin_auth','1');fetchData();}
+function unlock(){document.getElementById('pinScreen').classList.add('hidden');document.getElementById('app').style.display='';document.getElementById('bottomNav').style.display='';sessionStorage.setItem('fin_auth','1');document.documentElement.style.setProperty('--tab-color',TAB_COLORS[state.currentTab]);fetchData();}
 document.getElementById('pinInput').addEventListener('input',function(){if(this.value.length===4){if(hashPin(this.value)===PIN_HASH){unlock();}else{document.getElementById('pinError').textContent='Wrong PIN';this.value='';}}});
 
 checkAuth();
