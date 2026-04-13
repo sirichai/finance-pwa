@@ -512,7 +512,13 @@ function checkSyncStatus() {
   }
 }
 
-document.getElementById('syncBtn').addEventListener('click', forceSync);
+// Tap = refresh (clear cache + re-fetch), Long press = force sync pipeline (SCB only)
+var syncLongPress=null;
+document.getElementById('syncBtn').addEventListener('mousedown',function(){syncLongPress=setTimeout(function(){syncLongPress='long';forceSync();},800);});
+document.getElementById('syncBtn').addEventListener('mouseup',function(){if(syncLongPress==='long')return;clearTimeout(syncLongPress);refreshData();});
+document.getElementById('syncBtn').addEventListener('touchstart',function(e){e.preventDefault();syncLongPress=setTimeout(function(){syncLongPress='long';forceSync();},800);},{passive:false});
+document.getElementById('syncBtn').addEventListener('touchend',function(){if(syncLongPress==='long')return;clearTimeout(syncLongPress);refreshData();});
+function refreshData(){try{localStorage.removeItem(cacheKey());}catch(e){}state.loading=true;renderList();fetchFromServer(false);showToast('Refreshing...');}
 
 checkAuth();
 </script>
