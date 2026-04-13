@@ -447,7 +447,7 @@ function forceSync() {
   btn.classList.add('syncing');
   showToast('Requesting sync...');
 
-  var body = JSON.stringify({ action: 'forceSync' });
+  var body = JSON.stringify({ action: 'forceSync', tab: state.currentTab });
   function onOk(r) {
     if (r.success) {
       showToast('Sync requested — running...');
@@ -462,7 +462,7 @@ function forceSync() {
     showToast('Sync request failed', true);
   }
   if (IS_GAS) {
-    google.script.run.withSuccessHandler(onOk).withFailureHandler(onErr).requestForceSync();
+    google.script.run.withSuccessHandler(onOk).withFailureHandler(onErr).requestForceSync(state.currentTab);
   } else {
     fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body })
       .then(function(r) { return r.json(); }).then(onOk).catch(onErr);
