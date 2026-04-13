@@ -118,9 +118,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .mp-month.current { color: var(--accent); font-weight: 600; }
 
 /* Mobile hide transfers */
-.m-filter-row { padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.m-filter-row { padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
 .m-filter-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
 .m-filter-row input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* Hidden transactions */
+.txn-card.is-hidden, .d-table tbody tr.is-hidden { opacity: 0.35; }
+.hide-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); margin-top: 8px; }
+.hide-toggle-label { font-size: 14px; color: var(--text-secondary); }
+.toggle-switch { position: relative; width: 44px; height: 24px; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 12px; transition: 0.2s; }
+.toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: var(--text); border-radius: 50%; transition: 0.2s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--expense); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
 
 /* ══════════ DESKTOP ══════════ */
 .desktop-view { display: none; }
@@ -253,6 +264,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   <div class="m-filter-row" id="mFilterRow"><label><input type="checkbox" id="mHideTransfers"> Hide transfers</label></div>
+  <div class="m-filter-row"><label><input type="checkbox" id="mShowHidden"> Show hidden</label></div>
   <div id="mTxnList"></div>
 </div>
 
@@ -273,6 +285,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="m-form-group"><label class="form-label">Category</label><div class="m-cat-grid" id="mCatGrid"></div></div>
     <div class="m-form-group"><label class="form-label">Tag</label><input type="text" class="form-input" id="mTagInput" placeholder="e.g. lunch, grab"></div>
     <div class="m-form-group"><label class="form-label">Note</label><input type="text" class="form-input" id="mNoteInput" placeholder="Additional details"></div>
+    <div class="hide-toggle"><span class="hide-toggle-label">Hide transaction</span><label class="toggle-switch"><input type="checkbox" id="mHideToggle"><span class="toggle-slider"></span></label></div>
     <button class="btn-save" id="mBtnSave">Save</button>
   </div>
 </div>
@@ -309,6 +322,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div><div class="d-sidebar-title">Categories</div><div class="d-cat-breakdown" id="dCatBreakdown"></div></div>
       <div><div class="d-sidebar-title">Filters</div>
         <label class="d-filter-check" id="dFilterRow"><input type="checkbox" id="dHideTransfers"> Hide transfers</label>
+        <label class="d-filter-check" style="margin-top:6px;"><input type="checkbox" id="dShowHidden"> Show hidden</label>
         <div style="margin-top:8px;"><input class="d-search-input" type="text" id="dSearchInput" placeholder="Search..." oninput="renderAll()"></div>
       </div>
     </div>
@@ -327,6 +341,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div class="d-form-group"><label class="d-form-label">Category</label><div class="d-cat-grid" id="dCatGrid"></div></div>
         <div class="d-form-group"><label class="d-form-label">Tag</label><input type="text" class="d-form-input" id="dTagInput" placeholder="e.g. lunch, grab"></div>
         <div class="d-form-group"><label class="d-form-label">Note</label><input type="text" class="d-form-input" id="dNoteInput" placeholder="Additional details"></div>
+        <div class="hide-toggle"><span class="hide-toggle-label">Hide transaction</span><label class="toggle-switch"><input type="checkbox" id="dHideToggle"><span class="toggle-slider"></span></label></div>
         <button class="btn-save" id="dBtnSave" onclick="dSaveEdit()">Save</button>
       </div>
     </div>
@@ -395,10 +410,16 @@ function getSearch(){
   return m?(m.value||'').toLowerCase():'';
 }
 
+function getShowHidden(){
+  var m=document.getElementById('mShowHidden'),d=document.getElementById('dShowHidden');
+  return(m&&m.checked)||(d&&d.checked);
+}
 function filterTxns(){
   var hide=state.currentTab==='4981'&&getHideTransfers();
+  var showHidden=getShowHidden();
   var search=getSearch();
   return state.transactions.filter(function(t){
+    if(!showHidden&&t.hidden==='1')return false;
     if(hide&&isInternal(t))return false;
     if(search&&(t.to||'').toLowerCase().indexOf(search)===-1&&(t.type||'').toLowerCase().indexOf(search)===-1&&(t.tag||'').toLowerCase().indexOf(search)===-1&&(t.note||'').toLowerCase().indexOf(search)===-1&&(t.category||'').toLowerCase().indexOf(search)===-1)return false;
     return true;
@@ -469,7 +490,8 @@ function renderMobile(){
     txns.forEach(function(txn,idx){
       var catId=txn.category||suggestCat(txn),cat=CAT_MAP[catId]||{emoji:'📌'},payee=txn.to||txn.type||'-',desc=getTxnDesc(txn);
       var amtColor=isSp?'var(--expense)':(txn.amount>=0?'var(--income)':'var(--expense)');
-      html+='<div class="txn-card" onclick="mOpenEdit(\''+date+'\','+idx+')"><div class="txn-icon">'+cat.emoji+'</div><div class="txn-info"><div class="txn-payee">'+esc(payee)+'</div><div class="txn-desc">'+esc(desc)+'</div></div>';
+      var hidCls=txn.hidden==='1'?' is-hidden':'';
+      html+='<div class="txn-card'+hidCls+'" onclick="mOpenEdit(\''+date+'\','+idx+')"><div class="txn-icon">'+cat.emoji+'</div><div class="txn-info"><div class="txn-payee">'+esc(payee)+'</div><div class="txn-desc">'+esc(desc)+'</div></div>';
       html+='<div><div class="txn-amount" style="color:'+amtColor+'">'+fmtNumShort(Math.abs(txn.amount))+'</div><div class="txn-time">'+(txn.time||'')+'</div></div></div>';
     });html+='</div>';
   });c.innerHTML=html;
@@ -483,6 +505,7 @@ function mOpenEdit(date,idx){
   var isSp=isSpendTab(),mColor=isSp?'var(--expense)':(txn.amount>=0?'var(--income)':'var(--expense)'),mText=txn.amount>=0?'+'+fmtNumShort(txn.amount):fmtNumShort(txn.amount);
   document.getElementById('mModalSummary').innerHTML='<div><div class="payee">'+esc(txn.to||txn.type)+'</div><div class="meta">'+txn.date+' '+txn.time+'</div></div><div class="txn-amount" style="color:'+mColor+'">'+mText+' THB</div>';
   mRenderCatGrid();document.getElementById('mTagInput').value=txn.tag||'';document.getElementById('mNoteInput').value=txn.note||'';
+  document.getElementById('mHideToggle').checked=(txn.hidden==='1');
   document.getElementById('mEditModal').classList.add('open');
 }
 function mRenderCatGrid(){var html='';CATEGORIES.forEach(function(c){html+='<div class="m-cat-item'+(c.id===state.selectedCat?' active':'')+'" onclick="selectCat(\''+c.id+'\',\'m\')"><span class="cat-emoji">'+c.emoji+'</span>'+c.label+'</div>';});document.getElementById('mCatGrid').innerHTML=html;}
@@ -490,7 +513,8 @@ function mCloseModal(){document.getElementById('mEditModal').classList.remove('o
 function mSaveEdit(){
   var txn=state.editingTxn;if(!txn)return;
   var btn=document.getElementById('mBtnSave');btn.disabled=true;btn.textContent='Saving...';
-  doSave(txn,state.selectedCat,document.getElementById('mTagInput').value.trim(),document.getElementById('mNoteInput').value.trim(),btn,function(){mCloseModal();renderAll();});
+  var hid=document.getElementById('mHideToggle').checked?'1':'';
+  doSave(txn,state.selectedCat,document.getElementById('mTagInput').value.trim(),document.getElementById('mNoteInput').value.trim(),hid,btn,function(){mCloseModal();renderAll();});
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -525,8 +549,8 @@ function renderDesktop(){
       var catId=txn.category||suggestCat(txn),cat=CAT_MAP[catId]||{emoji:'📌',label:''},payee=txn.to||txn.type||'-',desc=getTxnDesc(txn);
       var amtColor=isSp?'var(--expense)':(txn.amount>=0?'var(--income)':'var(--expense)');
       var amtText=(txn.amount>=0&&!isSp?'+':'')+fmtNum(txn.amount);
-      var sel=(txn._idx===state.dSelectedIdx)?' selected':'';
-      html+='<tr class="'+sel+'" onclick="dOpenEdit('+txn._idx+')"><td class="td-muted">'+txn.date+'</td><td class="td-muted">'+(txn.time||'')+'</td>';
+      var sel=(txn._idx===state.dSelectedIdx)?' selected':'',hidCls=txn.hidden==='1'?' is-hidden':'';
+      html+='<tr class="'+sel+hidCls+'" onclick="dOpenEdit('+txn._idx+')"><td class="td-muted">'+txn.date+'</td><td class="td-muted">'+(txn.time||'')+'</td>';
       html+='<td><div class="td-cat"><span class="emoji">'+cat.emoji+'</span>'+esc(cat.label)+'</div></td>';
       html+='<td class="td-payee">'+esc(payee)+'</td><td class="td-desc">'+esc(desc)+'</td>';
       html+='<td class="td-amount" style="color:'+amtColor+'">'+amtText+'</td><td class="td-tag">'+esc(txn.tag||'')+'</td></tr>';
@@ -542,6 +566,7 @@ function dOpenEdit(idx){
   var isSp=isSpendTab(),mColor=isSp?'var(--expense)':(txn.amount>=0?'var(--income)':'var(--expense)'),mText=(txn.amount>=0&&!isSp?'+':'')+fmtNum(txn.amount)+' THB';
   document.getElementById('dEditSummary').innerHTML='<div class="payee">'+esc(txn.to||txn.type)+'</div><div class="meta">'+txn.date+' '+txn.time+' · '+esc(txn.type)+'</div><div class="amount" style="color:'+mColor+'">'+mText+'</div>';
   dRenderCatGrid();document.getElementById('dTagInput').value=txn.tag||'';document.getElementById('dNoteInput').value=txn.note||'';
+  document.getElementById('dHideToggle').checked=(txn.hidden==='1');
   document.getElementById('dEditPanel').classList.remove('hidden');
 }
 function dCloseEdit(){state.dSelectedIdx=-1;state.editingTxn=null;document.getElementById('dEditPanel').classList.add('hidden');renderDesktop();}
@@ -549,7 +574,8 @@ function dRenderCatGrid(){var html='';CATEGORIES.forEach(function(c){html+='<div
 function dSaveEdit(){
   var txn=state.editingTxn;if(!txn)return;
   var btn=document.getElementById('dBtnSave');btn.disabled=true;btn.textContent='Saving...';
-  doSave(txn,state.selectedCat,document.getElementById('dTagInput').value.trim(),document.getElementById('dNoteInput').value.trim(),btn,function(){dCloseEdit();renderAll();});
+  var hid=document.getElementById('dHideToggle').checked?'1':'';
+  doSave(txn,state.selectedCat,document.getElementById('dTagInput').value.trim(),document.getElementById('dNoteInput').value.trim(),hid,btn,function(){dCloseEdit();renderAll();});
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -558,9 +584,9 @@ function dSaveEdit(){
 
 function selectCat(id,view){state.selectedCat=id;if(view==='m')mRenderCatGrid();else dRenderCatGrid();}
 
-function doSave(txn,cat,tag,note,btn,onDone){
-  var data={tab:txn.tab,rowIndex:txn.rowIndex,msgId:txn.msgId,category:cat||'',tag:tag,note:note};
-  function ok(r){btn.disabled=false;btn.textContent='Save';if(r.success){txn.category=data.category;txn.tag=data.tag;txn.note=data.note;onDone();showToast('Saved');}else if(r.stale){onDone();showToast(r.message,true);fetchData();}else{showToast(r.message,true);}}
+function doSave(txn,cat,tag,note,hidden,btn,onDone){
+  var data={tab:txn.tab,rowIndex:txn.rowIndex,msgId:txn.msgId,category:cat||'',tag:tag,note:note,hidden:hidden};
+  function ok(r){btn.disabled=false;btn.textContent='Save';if(r.success){txn.category=data.category;txn.tag=data.tag;txn.note=data.note;txn.hidden=data.hidden;onDone();showToast('Saved');}else if(r.stale){onDone();showToast(r.message,true);fetchData();}else{showToast(r.message,true);}}
   function fail(e){btn.disabled=false;btn.textContent='Save';showToast('Save failed',true);}
   if(IS_GAS){google.script.run.withSuccessHandler(ok).withFailureHandler(fail).updateTransaction(data);}
   else{fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)}).then(function(r){return r.json();}).then(ok).catch(fail);}
@@ -634,6 +660,8 @@ document.getElementById('mpPrevYear').addEventListener('click',function(){state.
 document.getElementById('mpNextYear').addEventListener('click',function(){state.mpYear++;renderMonthPicker();});
 document.getElementById('mHideTransfers').addEventListener('change',function(){document.getElementById('dHideTransfers').checked=this.checked;renderAll();});
 document.getElementById('dHideTransfers').addEventListener('change',function(){document.getElementById('mHideTransfers').checked=this.checked;renderAll();});
+document.getElementById('mShowHidden').addEventListener('change',function(){document.getElementById('dShowHidden').checked=this.checked;renderAll();});
+document.getElementById('dShowHidden').addEventListener('change',function(){document.getElementById('mShowHidden').checked=this.checked;renderAll();});
 document.getElementById('mModalClose').addEventListener('click',mCloseModal);
 document.getElementById('mEditModal').addEventListener('click',function(e){if(e.target===this)mCloseModal();});
 document.getElementById('mBtnSave').addEventListener('click',mSaveEdit);
